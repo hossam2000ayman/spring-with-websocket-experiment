@@ -30,22 +30,20 @@ public class ChatWebSocketController {
         try {
             User sender = userService.findById(chatMessageDto.getSenderId());
             User receiver = userService.findById(chatMessageDto.getReceiverId());
-            
+
             ChatMessage chatMessage = chatService.sendMessage(
-                chatMessageDto.getContent(),
-                sender,
-                receiver,
-                null
-            );
-            
+                    chatMessageDto.getContent(),
+                    sender,
+                    receiver,
+                    null);
+
             ChatMessageDto responseDto = convertToDto(chatMessage);
-            
+
             messagingTemplate.convertAndSendToUser(
-                String.valueOf(receiver.getId()),
-                "/queue/messages",
-                responseDto
-            );
-            
+                    String.valueOf(receiver.getId()),
+                    "/user/queue/messages",
+                    responseDto);
+
             return responseDto;
         } catch (Exception e) {
             chatMessageDto.setType("ERROR");
@@ -61,9 +59,11 @@ public class ChatWebSocketController {
             User user = userService.findById(chatMessageDto.getSenderId());
             chatMessageDto.setType("JOIN");
             chatMessageDto.setSenderName(user.getName());
-            
+
+            userService.setOnlineStatus(user.getId(), true);
+
             messagingTemplate.convertAndSend("/topic/public", chatMessageDto);
-            
+
             return chatMessageDto;
         } catch (Exception e) {
             chatMessageDto.setType("ERROR");
@@ -76,28 +76,25 @@ public class ChatWebSocketController {
     public void sendToRoom(@Payload ChatMessageDto chatMessageDto) {
         try {
             User sender = userService.findById(chatMessageDto.getSenderId());
-            
+
             ChatMessage chatMessage = chatService.sendMessage(
-                chatMessageDto.getContent(),
-                sender,
-                null,
-                chatMessageDto.getChatRoomId()
-            );
-            
+                    chatMessageDto.getContent(),
+                    sender,
+                    null,
+                    chatMessageDto.getChatRoomId());
+
             ChatMessageDto responseDto = convertToDto(chatMessage);
-            
+
             messagingTemplate.convertAndSend(
-                "/topic/room/" + chatMessageDto.getChatRoomId(),
-                responseDto
-            );
+                    "/topic/room/" + chatMessageDto.getChatRoomId(),
+                    responseDto);
         } catch (Exception e) {
             ChatMessageDto errorDto = new ChatMessageDto();
             errorDto.setType("ERROR");
             errorDto.setContent("Failed to send message: " + e.getMessage());
             messagingTemplate.convertAndSend(
-                "/topic/room/" + chatMessageDto.getChatRoomId(),
-                errorDto
-            );
+                    "/topic/room/" + chatMessageDto.getChatRoomId(),
+                    errorDto);
         }
     }
 
@@ -108,16 +105,16 @@ public class ChatWebSocketController {
         dto.setTimestamp(chatMessage.getTimestamp());
         dto.setSenderId(chatMessage.getSender().getId());
         dto.setSenderName(chatMessage.getSender().getName());
-        
+
         if (chatMessage.getReceiver() != null) {
             dto.setReceiverId(chatMessage.getReceiver().getId());
             dto.setReceiverName(chatMessage.getReceiver().getName());
         }
-        
+
         if (chatMessage.getChatRoom() != null) {
             dto.setChatRoomId(chatMessage.getChatRoom().getId());
         }
-        
+
         dto.setType("CHAT");
         return dto;
     }

@@ -438,6 +438,10 @@
                     <p class="user-status">Online</p>
                 </div>
                 <div class="sidebar-actions">
+                    <button class="action-btn" title="New Chat" data-bs-toggle="modal"
+                        data-bs-target="#createChatModal">
+                        <i class="bi bi-plus"></i>
+                    </button>
                     <button class="action-btn" onclick="toggleStatusMenu()">
                         <i class="bi bi-three-dots-vertical"></i>
                     </button>
@@ -569,11 +573,7 @@
     </div>
 
     <!-- Add User Button (Floating) -->
-    <button class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4"
-        style="width: 60px; height: 60px; z-index: 1000; background: var(--secondary-color); border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"
-        data-bs-toggle="modal" data-bs-target="#createChatModal">
-        <i class="bi bi-plus-lg" style="font-size: 24px;"></i>
-    </button>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script th:inline="javascript">
@@ -851,23 +851,100 @@
 
         // Handle incoming messages
         function handlePrivateMessage(message) {
-            if (activeChat && activeChat.type === 'direct' && activeChat.user.id === message.senderId) {
+            // Ensure types match for comparison
+            const currentUserId = Number(currentUser.id);
+            const messageSenderId = Number(message.senderId);
+
+            if (activeChat && activeChat.type === 'direct' && Number(activeChat.user.id) === messageSenderId) {
                 displayMessage(message);
+            } else {
+                // Update sidebar for inactive chat
+                updateSidebar(messageSenderId, message.content, 'direct');
             }
         }
 
         function handleRoomMessage(message) {
-            if (activeChat && activeChat.type === 'room' && activeChat.room.id === message.chatRoomId) {
+            const currentUserId = Number(currentUser.id);
+            const messageSenderId = Number(message.senderId);
+            const roomId = Number(message.chatRoomId);
+
+            if (activeChat && activeChat.type === 'room' && Number(activeChat.room.id) === roomId) {
                 // Only display if it's from someone else (own messages handled optimistically)
-                if (message.senderId !== currentUser.id) {
+                if (messageSenderId !== currentUserId) {
                     displayMessage(message);
+                }
+            } else {
+                if (messageSenderId !== currentUserId) {
+                    updateSidebar(roomId, message.content, 'room');
                 }
             }
         }
 
         function handlePublicMessage(message) {
-            // Handle system messages (JOIN, LEAVE, etc.)
-            console.log('Public message:', message);
+            if (message.type === 'JOIN' || message.type === 'LEAVE') {
+                updateUserStatus(message.senderId, message.type === 'JOIN');
+            }
+        }
+
+        // Update user online status
+        function updateUserStatus(userId, isOnline) {
+            // Update allUsers array
+            const userIndex = allUsers.findIndex(u => u.id === userId);
+            if (userIndex !== -1) {
+                allUsers[userIndex].online = isOnline;
+            }
+
+            // Update sidebar
+            const chatItem = document.getElementById('user_' + userId);
+            if (chatItem) {
+                const avatar = chatItem.querySelector('.chat-avatar');
+                const indicator = avatar.querySelector('.online-indicator');
+
+                if (isOnline) {
+                    if (!indicator) {
+                        const newIndicator = document.createElement('div');
+                        newIndicator.className = 'online-indicator';
+                        avatar.appendChild(newIndicator);
+                    }
+                } else {
+                    if (indicator) {
+                        indicator.remove();
+                    }
+                }
+            }
+
+            // Update active chat header if applicable
+            if (activeChat && activeChat.type === 'direct' && activeChat.user.id === userId) {
+                document.getElementById('activeChatStatus').textContent = isOnline ? 'Online' : 'Offline';
+                const headerIndicator = document.getElementById('activeChatOnlineIndicator');
+                headerIndicator.style.display = isOnline ? 'block' : 'none';
+            }
+        }
+
+        // Update sidebar with new message info
+        function updateSidebar(id, content, type) {
+            const elementId = type === 'direct' ? 'user_' + id : 'room_' + id;
+            const chatItem = document.getElementById(elementId);
+
+            if (chatItem) {
+                // Update last message
+                const lastMsg = chatItem.querySelector('.chat-last-message');
+                lastMsg.textContent = content;
+
+                // Update Badge
+                let badge = chatItem.querySelector('.unread-badge');
+                if (!badge) {
+                    const meta = chatItem.querySelector('.chat-meta');
+                    badge = document.createElement('div');
+                    badge.className = 'unread-badge';
+                    badge.textContent = '0';
+                    meta.appendChild(badge);
+                }
+                badge.textContent = parseInt(badge.textContent) + 1;
+
+                // Move to top (Optional - simple implementation)
+                chatItem.parentElement.prepend(chatItem);
+            }
         }
 
         // Setup event listeners
@@ -954,7 +1031,10 @@
                 // Close modal and reset form
                 const modal = bootstrap.Modal.getInstance(document.getElementById('createChatModal'));
                 modal.hide();
-                document.getElementById('createChatModal').querySelectorAll('form')[0].reset();
+                let forms = document.getElementById('createChatModal').querySelectorAll('form');
+                if (forms.length !== 0) {
+                    forms[0].reset();
+                }
 
             } catch (error) {
                 console.error('Error creating chat:', error);

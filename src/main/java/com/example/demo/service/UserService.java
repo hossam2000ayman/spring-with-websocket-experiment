@@ -44,19 +44,13 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    public void createUser(String name, String email, String password) {
-        User user = new User();
-        user.setName(name);
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(password));
-        createUser(user);
-    }
 
     public User createUser(User user) {
         if (user.getPassword() == null || user.getPassword().isEmpty()) {
             throw new RuntimeException("Password cannot be empty");
         }
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        String encodedPassword = passwordEncoder.encode(user.getPassword());
+        user.setPassword(encodedPassword);
         return userRepository.save(user);
     }
 
@@ -96,13 +90,14 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
-    public User createUserWithDefaultRole(String name, String email, String password) {
+    public User createUser(String name, String email, String password) {
         Role userRole = roleRepository.findByName("ROLE_USER")
                 .orElseThrow(() -> new RuntimeException("Default role not found"));
 
         Set<Role> roles = new HashSet<>();
         roles.add(userRole);
 
+        password = passwordEncoder.encode(password);
         User user = new User(name, email, password);
         user.setRoles(roles);
         user.setLastSeen(LocalDateTime.now());
@@ -137,7 +132,7 @@ public class UserService {
         }
     }
 
-    public void initializeAdmin() {
+    public void initializeUsers() {
         if (!userRepository.existsByEmail("admin@chat.com")) {
             createAdmin("Admin User", "admin@chat.com", "admin123");
         }

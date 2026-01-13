@@ -8,6 +8,7 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -45,31 +46,31 @@ public class SecurityConfig {
         http
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/", "/login", "/register", "/css/**", "/js/**", "/images/**", "/ws/**", "/swagger-ui.html/**").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/chat/**").hasAnyRole("USER", "ADMIN")
-                        .anyRequest().authenticated()
-                )
+                        .requestMatchers("/", "/login", "/register", "/css/**", "/js/**", "/images/**", "/ws/**")
+                        .permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/chat/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                        .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")
                         .defaultSuccessUrl("/chat", true)
                         .failureUrl("/login?error=true")
-                        .permitAll()
-                )
+                        .permitAll())
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout=true")
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID")
-                        .permitAll()
-                )
+                        .permitAll())
                 .sessionManagement(session -> session
                         .maximumSessions(1)
-                        .maxSessionsPreventsLogin(false)
-                )
+                        .maxSessionsPreventsLogin(false))
+                //disable frameOptions for display the h2-console url
+                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
                 .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/ws/**", "/app/**", "/topic/**", "/queue/**")
-                );
+                        .ignoringRequestMatchers("/ws/**", "/app/**", "/topic/**", "/queue/**", "/h2-console/**"));
 
         return http.build();
     }

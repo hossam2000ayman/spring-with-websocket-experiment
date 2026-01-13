@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" 
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Chat Application</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+        }
+        .main-content {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .btn-action {
+            padding: 0.375rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            margin: 0 2px;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .online-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .online { background: #28a745; }
+        .offline { background: #6c757d; }
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <h4 class="text-center mb-4">
+                        <i class="bi bi-chat-dots-fill"></i> ChatAdmin
+                    </h4>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/admin">
+                                <i class="bi bi-people-fill"></i> Users
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/chat">
+                                <i class="bi bi-chat-dots"></i> Chat
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="document.getElementById('logout-form').submit();">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">User Management</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                            <i class="bi bi-plus-circle"></i> Add User
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Users</h5>
+                                <h2 th:text="${users.size()}">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Online</h5>
+                                <h2 th:text="${users.?[online == true].size()}">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Offline</h5>
+                                <h2 th:text="${users.?[online == false].size()}">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Admins</h5>
+                                <h2 th:text="${users.?[roles.?[name == 'ROLE_ADMIN'].size() > 0].size()}">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Table -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Last Seen</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="user : ${users}">
+                                        <td th:text="${user.id}">1</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="user-avatar me-3">
+                                                    <span th:text="${#strings.substring(user.name, 0, 1)}">A</span>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold" th:text="${user.name}">Admin User</div>
+                                                    <small class="text-muted">ID: <span th:text="${user.id}">1</span></small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td th:text="${user.email}">admin@chat.com</td>
+                                        <td>
+                                            <span class="badge" 
+                                                  th:class="${user.roles.?[name == 'ROLE_ADMIN'].size() > 0} ? 'bg-danger' : 'bg-primary'"
+                                                  th:text="${user.roles.?[name == 'ROLE_ADMIN'].size() > 0} ? 'Admin' : 'User'">Admin</span>
+                                        </td>
+                                        <td>
+                                            <span class="online-indicator" 
+                                                  th:class="${user.online} ? 'online' : 'offline'"></span>
+                                            <span th:text="${user.online} ? 'Online' : 'Offline'">Online</span>
+                                        </td>
+                                        <td>
+                                            <span th:if="${user.lastSeen != null}" 
+                                                  th:text="${#temporals.format(user.lastSeen, 'MMM dd, HH:mm')}">Dec 01, 10:30</span>
+                                            <span th:if="${user.lastSeen == null}" class="text-muted">Never</span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary btn-action" 
+                                                    th:onclick="'editUser(' + ${user.id} + ')'" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger btn-action" 
+                                                    th:onclick="'deleteUser(' + ${user.id} + ')'" title="Delete"
+                                                    th:disabled="${user.email == currentUser}">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New User</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addUserForm">
+                        <div class="mb-3">
+                            <label for="addName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="addName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="addEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="addEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="addPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="addPassword" required minlength="6">
+                        </div>
+                        <div class="mb-3">
+                            <label for="addRole" class="form-label">Role</label>
+                            <select class="form-select" id="addRole">
+                                <option value="USER">User</option>
+                                <option value="ADMIN">Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveUser()">Save User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit User</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <input type="hidden" id="editUserId">
+                        <div class="mb-3">
+                            <label for="editName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="editName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPassword" class="form-label">Password (leave blank to keep current)</label>
+                            <input type="password" class="form-control" id="editPassword" minlength="6">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editRole" class="form-label">Role</label>
+                            <select class="form-select" id="editRole">
+                                <option value="USER">User</option>
+                                <option value="ADMIN">Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="updateUser()">Update User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Form -->
+    <form id="logout-form" th:action="@{/logout}" method="post" style="display: none;"></form>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentEditingUserId = null;
+
+        function saveUser() {
+            const form = document.getElementById('addUserForm');
+            const formData = new FormData();
+            
+            formData.append('name', document.getElementById('addName').value);
+            formData.append('email', document.getElementById('addEmail').value);
+            formData.append('password', document.getElementById('addPassword').value);
+            
+            fetch('/admin/api/users', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the user');
+            });
+        }
+
+        function editUser(userId) {
+            currentEditingUserId = userId;
+            fetch('/admin/api/users/' + userId)
+                .then(response => response.json())
+                .then(user => {
+                    document.getElementById('editUserId').value = user.id;
+                    document.getElementById('editName').value = user.name;
+                    document.getElementById('editEmail').value = user.email;
+                    document.getElementById('editRole').value = user.roles.some(r => r.name === 'ROLE_ADMIN') ? 'ADMIN' : 'USER';
+                    
+                    const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+                    modal.show();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading user data');
+                });
+        }
+
+        function updateUser() {
+            const formData = new FormData();
+            formData.append('name', document.getElementById('editName').value);
+            formData.append('email', document.getElementById('editEmail').value);
+            formData.append('role', document.getElementById('editRole').value);
+            
+            const password = document.getElementById('editPassword').value;
+            if (password) {
+                formData.append('password', password);
+            }
+            
+            fetch('/admin/api/users/' + currentEditingUserId, {
+                method: 'PUT',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the user');
+            });
+        }
+
+        function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+fetch('/admin/api/users/' + userId, {
+                method: 'DELETE'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while deleting the user');
+                });
+            }
+        }
+    </script>
+</body>
+</html>
